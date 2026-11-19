@@ -4,8 +4,13 @@
 -- have no password; the first administrator is still created at /setup.
 -- =====================================================================
 
-update companies set name_th = 'บริษัท ไมน์เวิร์คส์ จำกัด', name_en = 'Mine Works Co., Ltd.', phone = '02-000-0000',
-  address_th = '99/9 อาคารตัวอย่าง ถนนตัวอย่าง', subdistrict = 'คลองเตย', district = 'คลองเตย', province = 'กรุงเทพมหานคร', postcode = '10110'
+-- keeps a company name already chosen at /setup; only fills in blanks
+update companies set
+  name_th = case when name_th = 'บริษัทของฉัน' then 'บริษัท ไมน์เวิร์คส์ จำกัด' else name_th end,
+  name_en = case when name_en is null or name_en = 'My Company' then case when name_th = 'บริษัทของฉัน' then 'Mine Works Co., Ltd.' else name_en end else name_en end,
+  phone = coalesce(phone, '02-000-0000'), address_th = coalesce(address_th, '99/9 อาคารตัวอย่าง ถนนตัวอย่าง'),
+  subdistrict = coalesce(subdistrict, 'คลองเตย'), district = coalesce(district, 'คลองเตย'),
+  province = coalesce(province, 'กรุงเทพมหานคร'), postcode = coalesce(postcode, '10110')
 where code = 'C01';
 
 insert into employees (code, company_id, branch_id, org_unit_id, position_id, shift_id, calendar_id, employment_type_id, status,
@@ -48,7 +53,8 @@ join org_units ou on ou.name = v.unit and ou.company_id = c.id
 join positions p on p.name = v.pos
 join shifts s on s.code = v.shift
 join employment_types et on et.code = v.et
-cross join lateral (select id from holiday_calendars order by is_default desc, id limit 1) cal;
+cross join lateral (select id from holiday_calendars order by is_default desc, id limit 1) cal
+order by v.code;
 
 update employees e set supervisor_id = s.id
 from (values ('10002','10001'),('10003','10002'),('10004','10003'),('10005','10003'),('10022','10003'),('10006','10002'),('10007','10006'),
