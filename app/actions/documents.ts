@@ -242,7 +242,9 @@ export async function decideDocument(fd: FormData) {
   const approve = str(fd, "decision") === "approve";
   const comment = str(fd, "comment");
   const ret = str(fd, "back") || `/documents/${id}`;
-  const ok = await decide(id!, u.id, u.roles.map((r) => r.id), approve, comment);
+  // administrators may decide any pending step (e.g. when the assigned approver is unavailable)
+  const admin = u.roles.some((r) => r.code === "ADMIN");
+  const ok = await decide(id!, u.id, u.roles.map((r) => r.id), approve, comment, admin);
   if (!ok) back(ret, { error: "forbidden" });
   back(ret);
 }

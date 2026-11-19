@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { canPayroll, requirePerm } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { Opt } from "@/lib/fields";
-import { addManualItem, calculate, deleteManualItem, deletePeriod, sendSlips, transition, updatePeriod } from "@/app/actions/payroll";
+import { addManualItem, calculate, deleteManualItem, deletePeriod, importManualItems, sendSlips, transition, updatePeriod } from "@/app/actions/payroll";
 import { PERIOD_STATUS, fd, fdt, fullName, money } from "@/lib/util";
 import Notice from "@/components/Notice";
 import ConfirmButton from "@/components/ConfirmButton";
@@ -107,6 +107,12 @@ export default async function PeriodPage({ params, searchParams }: { params: Pro
             </a>
             <a className="btn" href={`/api/payroll/${p.id}/pnd1`}>
               ภ.ง.ด.1
+            </a>
+            <a className="btn" href={`/api/payroll/${p.id}/pnd3`}>
+              ภ.ง.ด.3
+            </a>
+            <a className="btn" href={`/api/payroll/${p.id}/pf`}>
+              กองทุนสำรองฯ
             </a>
             <a className="btn" href={`/api/payroll/${p.id}/summary`}>
               รายงานเงินเดือน
@@ -250,6 +256,16 @@ export default async function PeriodPage({ params, searchParams }: { params: Pro
                 <input name="note" />
               </label>
               <button className="btn">เพิ่มรายการ</button>
+            </form>
+          )}
+          {editable && canPayroll(u, "adjust") && (
+            <form action={importManualItems} className="inline" style={{ marginTop: 12 }}>
+              <input type="hidden" name="id" value={p.id} />
+              <label>
+                นำเข้าจากไฟล์ CSV (รหัสพนักงาน, รหัสรายการ, จำนวนเงิน, หมายเหตุ)
+                <input type="file" name="file" accept=".csv,text/csv" required />
+              </label>
+              <button className="btn">นำเข้า</button>
             </form>
           )}
         </div>

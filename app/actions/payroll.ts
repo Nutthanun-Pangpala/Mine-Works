@@ -8,6 +8,7 @@ import { back } from "@/lib/nav";
 import { audit, notify } from "@/lib/log";
 import { calculatePeriod, createPeriodsForMonth } from "@/lib/payroll";
 import { isMonth } from "@/lib/util";
+import { parseCSV } from "@/lib/csv";
 
 async function guard(perm: string | null, ret: string): Promise<User> {
   const u = await requireUser();
@@ -153,4 +154,41 @@ export async function deletePeriod(fd: FormData) {
   await sql()`delete from payroll_periods where id = ${id}`;
   await audit(u.id, "delete", "payroll_period", id);
   redirect("/payroll?ok=1");
+}
+
+/** นำเข้ารายการในงวด (CSV: employee_code,item_code,amount,note). */
+export async function importManualItems(fd: FormData) {
+  const id = int(fd, "id")!;
+  const ret = `/payroll/${id}`;
+  const u = await guard("adjust", ret);
+  const p = await period(id);
+  if (!["draft", "calculated", "reviewed"].includes(p?.status)) back(ret, { error: "locked" });
+  const f = fd.get("file") as any;
+  if (!f || typeof f === "string" || !f.size) back(ret, { error: "required" });
+  const rows = parseCSV(await f.text());
+  const start = rows[0] && isNaN(Number(rows[0][2])) ? 1 : 0;
+  const [emps, items] = await Promise.all([
+    sql()`select id, code from employees where company_id = ${p.company_id}`,
+    sql()`select id, code from pay_items where active`,
+  ]);
+  const ec = new Map(emps.map((e: any) => [String(e.code).trim(), e.id]));
+  const ic = new Map(items.map((i: any) => [String(i.code).trim().toUpperCase(), i.id]));
+  let ok = 0;
+  const bad: number[] = [];
+  for (let i = start; i < rows.length; i++) {
+    const [code, item, amount, note] = rows[i].map((x) => (x || "").trim());
+    const e = ec.get(code);
+    const it = ic.get(item.toUpperCase());
+    const amt = Number(amount.replace(/,/g, ""));
+    if (!e || !it || !amt) {
+      bad.push(i + 1);
+      continue;
+    }
+    await sql()`insert into payroll_manual_items (period_id, employee_id, pay_item_id, amount, note, created_by)
+                values (${id}, ${e}, ${it}, ${amt}, ${note || "นำเข้า"}, ${u.id})`;
+    ok++;
+  }
+  if (ok && p.status !== "draft") await calculatePeriod(id);
+  await audit(u.id, "import_items", "payroll_period", id, { ok, bad });
+  back(ret, bad.length ? { error: `นำเข้าแล้ว ${ok} รายการ · ข้ามแถวที่ ${bad.slice(0, 20).join(", ")} (ไม่พบรหัสพนักงาน/รายการ หรือจำนวนเงินไม่ถูกต้อง)` } : { ok: `นำเข้าแล้ว ${ok} รายการ` });
 }

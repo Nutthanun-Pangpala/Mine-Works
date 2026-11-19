@@ -38,7 +38,7 @@ export default async function Import({ searchParams }: { searchParams: Promise<a
       {tab === "clock" && (
         <div className="card">
           <h2>นำเข้าเวลาทาบบัตร</h2>
-          <p className="muted small">CSV ไม่มีหัวคอลัมน์: รหัสพนักงาน, วันเวลา (YYYY-MM-DD HH:MM) — 1 แถวต่อ 1 การทาบบัตร เช่น ไฟล์ส่งออกจากเครื่องสแกนนิ้ว</p>
+          <p className="muted small">CSV: รหัสพนักงาน, วันเวลา (YYYY-MM-DD HH:MM) หรือ รหัสพนักงาน, วันที่, เวลา — 1 แถวต่อ 1 การทาบบัตร เช่น ไฟล์ส่งออกจากเครื่องสแกนนิ้ว (มีแถวหัวคอลัมน์หรือไม่ก็ได้)</p>
           <form action={importClock} className="inline">
             <input type="file" name="file" accept=".csv,text/csv" required />
             <button className="btn primary">นำเข้า</button>
@@ -48,7 +48,7 @@ export default async function Import({ searchParams }: { searchParams: Promise<a
       {tab === "quota" && (
         <div className="card">
           <h2>นำเข้าสิทธิ์การลา (กำหนดเอง)</h2>
-          <p className="muted small">CSV ไม่มีหัวคอลัมน์: รหัสพนักงาน, รหัสประเภทการลา (เช่น L02), ปี ค.ศ., จำนวนวัน</p>
+          <p className="muted small">CSV: รหัสพนักงาน, รหัสประเภทการลา (เช่น L02), ปี ค.ศ., จำนวนวัน (มีแถวหัวคอลัมน์หรือไม่ก็ได้)</p>
           <form action={importLeaveQuota} className="inline">
             <input type="file" name="file" accept=".csv,text/csv" required />
             <button className="btn primary">นำเข้า</button>

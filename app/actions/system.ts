@@ -107,15 +107,16 @@ export async function importClock(fd: FormData) {
   if (!rows) back(ret, { error: "required" });
   const emps = await sql()`select id, code from employees`;
   let n = 0, bad = 0;
-  for (const r of rows!) {
+  for (const [i, r] of rows!.entries()) {
     const code = (r[0] || "").trim();
-    const dt = (r[1] || "").trim().replace("T", " ");
+    // either "code, YYYY-MM-DD HH:MM" or "code, YYYY-MM-DD, HH:MM"
+    const dt = ((r[2] || "").trim() ? `${(r[1] || "").trim()} ${(r[2] || "").trim()}` : (r[1] || "").trim()).replace("T", " ");
     const e = emps.find((x: any) => x.code === code);
-    if (!e || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(dt)) {
-      bad++;
+    if (!e || !/^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}/.test(dt)) {
+      if (i > 0) bad++; // first row may be a header
       continue;
     }
-    await sql()`insert into clock_records (employee_id, ts, source) values (${e.id}, ${dt.slice(0, 16).replace(" ", "T") + ":00+07:00"}, 'import')`;
+    await sql()`insert into clock_records (employee_id, ts, source) values (${e.id}, ${dt.replace(/ (\d):/, " 0$1:").slice(0, 16).replace(" ", "T") + ":00+07:00"}, 'import')`;
     n++;
   }
   await audit(u.id, "import", "clock_records", null, { n, bad });
@@ -131,13 +132,13 @@ export async function importLeaveQuota(fd: FormData) {
   if (!rows) back(ret, { error: "required" });
   const [emps, types] = await Promise.all([sql()`select id, code from employees`, sql()`select id, code from leave_types`]);
   let n = 0, bad = 0;
-  for (const r of rows!) {
+  for (const [i, r] of rows!.entries()) {
     const e = emps.find((x: any) => x.code === (r[0] || "").trim());
     const t = types.find((x: any) => x.code === (r[1] || "").trim());
     const y = Number(r[2]);
     const d = Number(r[3]);
     if (!e || !t || !y || !Number.isFinite(d)) {
-      bad++;
+      if (i > 0) bad++; // first row may be a header
       continue;
     }
     await sql()`

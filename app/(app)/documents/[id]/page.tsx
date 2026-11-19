@@ -33,7 +33,8 @@ export default async function DocumentDetail({ params, searchParams }: { params:
     from request_steps s left join employees a on a.id = s.approver_id left join roles ro on ro.id = s.role_id
     left join employees d on d.id = s.decided_by
     where s.request_id = ${r.id} order by s.seq`;
-  const step = await canDecide(u.id, u.roles.map((x) => x.id), r.id);
+  let step = await canDecide(u.id, u.roles.map((x) => x.id), r.id);
+  if (!step && r.status === "pending" && u.roles.some((x) => x.code === "ADMIN")) step = steps.find((s: any) => s.status === "pending") ?? null;
   const isOwner = r.employee_id === u.id || r.created_by === u.id;
   const isApprover = steps.some((s: any) => s.approver_id === u.id || u.roles.some((x) => x.id === s.role_id));
   const viewer = isOwner || isApprover || can(u, "documents.onbehalf") || (u.isSupervisor && (await subordinateIds(u.id)).includes(r.employee_id));

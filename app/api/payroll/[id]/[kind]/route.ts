@@ -37,6 +37,27 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     ]);
   }
 
+  if (kind === "pnd3") {
+    // 40(2) income paid in this period (contract/commission items) – ภ.ง.ด.3 attachment.
+    const rows = await sql()`
+      select e.national_id, e.title, e.first_name, e.last_name, e.address_current, sum(li.amount) as amount
+      from payroll_line_items li join pay_items i on i.id = li.pay_item_id join payroll_lines l on l.id = li.line_id
+      join employees e on e.id = l.employee_id
+      where l.period_id = ${p.id} and i.kind = 'income' and i.income_type like '40(2)%'
+      group by e.id order by e.code`;
+    return csvResponse(`ภงด3_${base}.csv`, [
+      ["ลำดับ", "เลขประจำตัวผู้เสียภาษี", "คำนำหน้า", "ชื่อ", "นามสกุล", "ที่อยู่", "วันที่จ่าย", "ประเภทเงินได้", "อัตราภาษี %", "จำนวนเงินที่จ่าย", "ภาษีที่หัก", "เงื่อนไข"],
+      ...rows.map((r: any, i: number) => [i + 1, r.national_id, r.title, r.first_name, r.last_name, r.address_current, p.pd, "40(2)", 3, r.amount,
+        Math.round(Number(r.amount) * 3) / 100, 1]),
+    ]);
+  }
+
+  if (kind === "pf") {
+    const r = await runReport(u, "P017", { period: p.id });
+    if ("error" in r) return new Response(r.error, { status: 403 });
+    return csvResponse(`กองทุนสำรองเลี้ยงชีพ_${base}.csv`, [r.result.cols, ...r.result.rows]);
+  }
+
   if (kind === "summary") {
     const [lines, items] = await Promise.all([
       sql()`select l.*, e.code, e.title, e.first_name, e.last_name, ou.name as unit from payroll_lines l join employees e on e.id = l.employee_id

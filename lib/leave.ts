@@ -78,7 +78,7 @@ export async function quotasFor(employeeId: number, at = todayBkk(), category = 
       from requests
       where employee_id = ${employeeId} and doc_type = 'leave' and status in ('approved','pending')
         and start_date between ${prev.from} and ${yr.to}
-      group by sub_type_id, status, (start_date >= ${yr.from}::date)`,
+      group by 1, 2, 4`,
   ]);
 
   const ov = (t: number, y: number) => overrides.find((o: any) => o.leave_type_id === t && o.year === y)?.days ?? null;

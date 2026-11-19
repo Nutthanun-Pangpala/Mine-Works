@@ -76,9 +76,11 @@ export async function resolveSteps(employeeId: number, steps: Step[]): Promise<R
     } else if (s.mode === "role") {
       let roleId = s.role_id ?? null;
       if (!roleId && s.role_code) {
-        const r = await sql()`select id from roles where code = ${s.role_code}`;
+        const r = await sql()`select id from roles where code = ${s.role_code} and active`;
         roleId = r[0]?.id ?? null;
       }
+      // a role nobody holds would leave the document stuck: hand it to the HR fallback instead
+      if (roleId && !(await sql()`select 1 from user_roles where role_id = ${roleId} limit 1`)[0]) roleId = await fallbackRole();
       if (roleId) out.push({ approver_id: null, role_id: roleId });
     }
   }
@@ -92,13 +94,19 @@ export async function resolveSteps(employeeId: number, steps: Step[]): Promise<R
   const wantsApproval = steps.some((s) => s.mode !== "none");
   if (dedup.length === 0 && wantsApproval) {
     // nobody in the line: send to HR
-    const hr = await sql()`
-      select r.id from roles r where r.is_hr and r.active
-        and exists (select 1 from user_roles ur where ur.role_id = r.id)
-      order by (r.code = 'HR_MANAGER') desc, (r.code = 'ADMIN') desc, r.id limit 1`;
-    if (hr[0]) dedup.push({ approver_id: null, role_id: hr[0].id });
+    const hr = await fallbackRole();
+    if (hr) dedup.push({ approver_id: null, role_id: hr });
   }
   return dedup;
+}
+
+/** HR role that actually has members (HR manager first, then administrators). */
+async function fallbackRole(): Promise<number | null> {
+  const hr = await sql()`
+    select r.id from roles r where (r.is_hr or r.code = 'ADMIN') and r.active
+      and exists (select 1 from user_roles ur join employees e on e.id = ur.employee_id where ur.role_id = r.id and e.status <> 'terminated')
+    order by (r.code = 'HR_MANAGER') desc, (r.code = 'ADMIN') desc, r.id limit 1`;
+  return hr[0]?.id ?? null;
 }
 
 export type NewRequest = {
