@@ -1,94 +1,112 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { isHR, requireUser } from "@/lib/auth";
 import { sql } from "@/lib/db";
-import { EMP_TYPE, ROLE_LABEL } from "@/lib/util";
+import { loadProfile } from "@/lib/profile";
+import { computeAttendance, summarize } from "@/lib/attendance";
+import { ACTION_KINDS, DOC_TYPES, REQ_STATUS, addDays, age, fd, fullName, money, todayBkk } from "@/lib/util";
+import { deleteEmployee } from "@/app/actions/employees";
 import Notice from "@/components/Notice";
-import EmployeeForm from "@/components/EmployeeForm";
+import ConfirmButton from "@/components/ConfirmButton";
 
-export default async function EmployeePage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<any>;
-}) {
-  const { id: rawId } = await params;
+export default async function Overview({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<any> }) {
+  const { id } = await params;
   const sp = await searchParams;
-  const u = await requireUser();
-  const id = Number(rawId);
-  if (!Number.isInteger(id)) notFound();
-
-  const rows = await sql()`
-    select e.id, e.code, e.email, e.role, e.first_name, e.last_name, e.nickname, e.phone,
-           e.department_id, e.position_id, e.branch_id, e.shift_id, e.manager_id, e.employment_type, e.status,
-           to_char(e.start_date, 'YYYY-MM-DD') as start_date,
-           to_char(e.end_date, 'YYYY-MM-DD') as end_date,
-           to_char(e.birth_date, 'YYYY-MM-DD') as birth_date,
-           d.name as dept, p.name as pos, b.name as branch, s.name as shift,
-           m.first_name || ' ' || m.last_name as manager
-    from employees e
-    left join departments d on d.id = e.department_id
-    left join positions p on p.id = e.position_id
-    left join branches b on b.id = e.branch_id
-    left join shifts s on s.id = e.shift_id
-    left join employees m on m.id = e.manager_id
-    where e.id = ${id}`;
-  const e = rows[0];
-  if (!e) notFound();
-
-  const hr = isHR(u);
-  if (!hr && e.id !== u.id && e.manager_id !== u.id) redirect("/employees");
-  const canEdit = hr && (e.role !== "admin" || u.role === "admin");
-
+  const { e, u, hr } = await loadProfile(id);
+  const today = todayBkk();
+  const from = addDays(today, -29);
+  const [team, journey, att] = await Promise.all([
+    sql()`select count(*)::int as n from employees where supervisor_id = ${e.id} and status <> 'terminated'`,
+    sql()`
+      (select 'history' as k, effective_date::text as d, action as title, amount_after as amount, null::text as kind from salary_history where employee_id = ${e.id})
+      union all
+      (select 'action', start_date::text, null, null, payload->>'kind' from requests where employee_id = ${e.id} and doc_type = 'action' and status = 'approved')
+      union all
+      (select 'doc', start_date::text, doc_type, null, status from requests where employee_id = ${e.id} and doc_type in ('warning'))
+      order by d desc nulls last limit 20`,
+    computeAttendance([e.id], from, today),
+  ]);
+  const s = summarize(att.get(e.id) || []);
+  const score = Math.max(0, 100 - s.absent_days * 10 - s.late_count * 2 - s.missing * 5);
+  const showMoney = hr || u.id === e.id;
   return (
     <>
-      <div className="head">
-        <div>
-          <h1>
-            {e.first_name} {e.last_name}
-          </h1>
-          <div className="muted">
-            {e.code} · {e.pos || "ไม่ระบุตำแหน่ง"}
+      <Notice sp={sp} />
+      <div className="card">
+        <h2>เกี่ยวกับ</h2>
+        <dl className="info">
+          <dt>สถานะ / ประเภท</dt>
+          <dd>{e.etype || e.emp_type || "-"}</dd>
+          <dt>กะทำงาน</dt>
+          <dd>{e.shift_code ? `${e.shift_code} - ${e.shift_name}` : "-"}</dd>
+          <dt>ผู้บังคับบัญชา</dt>
+          <dd>{e.supervisor_id ? <Link href={`/employees/${e.supervisor_id}`}>{e.sup_first} {e.sup_last}</Link> : "-"}</dd>
+          <dt>วันเกิด</dt>
+          <dd>{e.bd ? `${fd(e.bd)} (${age(e.bd)} ปี)` : "-"}</dd>
+          <dt>ทีม</dt>
+          <dd>{team[0].n} คน</dd>
+          <dt>ติดต่อ</dt>
+          <dd>
+            {e.work_email || "-"} · {e.work_phone || e.mobile || "-"}
+          </dd>
+        </dl>
+      </div>
+      <div className="card">
+        <h2>การเข้างาน 30 วันล่าสุด</h2>
+        <div className="kpi">
+          <div>
+            <b>{score}</b>
+            <span>คะแนนการเข้างาน</span>
+          </div>
+          <div>
+            <b>{s.absent_days}</b>
+            <span>ขาดงาน</span>
+          </div>
+          <div>
+            <b>{s.late_count}</b>
+            <span>สาย</span>
+          </div>
+          <div>
+            <b>{s.early_count}</b>
+            <span>กลับก่อน</span>
+          </div>
+          <div>
+            <b>{s.leave_days}</b>
+            <span>ลา (วัน)</span>
           </div>
         </div>
-        <Link className="btn" href="/employees">
-          กลับ
-        </Link>
       </div>
-      <Notice sp={sp} />
-      {canEdit ? (
-        <section className="card">
-          <h2>แก้ไขข้อมูล</h2>
-          <EmployeeForm emp={e} viewer={u} />
-        </section>
-      ) : (
-        <section className="card">
-          <dl className="info">
-            <dt>อีเมล</dt>
-            <dd>{e.email}</dd>
-            <dt>เบอร์โทร</dt>
-            <dd>{e.phone || "–"}</dd>
-            <dt>ชื่อเล่น</dt>
-            <dd>{e.nickname || "–"}</dd>
-            <dt>สิทธิ์</dt>
-            <dd>{ROLE_LABEL[e.role]}</dd>
-            <dt>แผนก</dt>
-            <dd>{e.dept || "–"}</dd>
-            <dt>ตำแหน่ง</dt>
-            <dd>{e.pos || "–"}</dd>
-            <dt>สาขา</dt>
-            <dd>{e.branch || "–"}</dd>
-            <dt>กะ</dt>
-            <dd>{e.shift || "–"}</dd>
-            <dt>หัวหน้า</dt>
-            <dd>{e.manager || "–"}</dd>
-            <dt>ประเภทการจ้าง</dt>
-            <dd>{EMP_TYPE[e.employment_type]}</dd>
-            <dt>วันเริ่มงาน</dt>
-            <dd>{e.start_date || "–"}</dd>
-          </dl>
-        </section>
+      <div className="card">
+        <h2>Journey</h2>
+        {journey.length === 0 ? <div className="empty">ยังไม่มี Journey</div> : null}
+        <table className="tbl compact">
+          <tbody>
+            {journey.map((j: any, i: number) => (
+              <tr key={i}>
+                <td>{fd(j.d)}</td>
+                <td>
+                  {j.k === "history"
+                    ? `${j.title}${showMoney && j.amount ? ` → ${money(j.amount)}` : ""}`
+                    : j.k === "action"
+                      ? ACTION_KINDS[j.kind] || j.kind
+                      : `${DOC_TYPES[j.title]} (${REQ_STATUS[j.kind]})`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {hr && (
+        <div className="row noprint">
+          <Link className="btn" href={`/team/actions?kind=salary_adjust`}>
+            สร้างการดำเนินการ
+          </Link>
+          <Link className="btn" href={`/documents/new?type=leave&for=${e.id}`}>
+            สร้างเอกสารแทน
+          </Link>
+          <form action={deleteEmployee}>
+            <input type="hidden" name="id" value={e.id} />
+            <ConfirmButton message={`ลบ ${fullName(e)} ออกจากระบบถาวร? (แนะนำให้ใช้การพ้นสภาพแทน)`}>ลบพนักงาน</ConfirmButton>
+          </form>
+        </div>
       )}
     </>
   );
