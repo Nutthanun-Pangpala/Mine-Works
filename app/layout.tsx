@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "ระบบ HR",
-  description: "ระบบบริหารงานบุคคลภายในองค์กร",
+  title: "Mine Works HR",
+  description: "ระบบบริหารงานบุคคล",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
