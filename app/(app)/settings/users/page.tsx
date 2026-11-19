@@ -235,7 +235,7 @@ async function Groups({ edit }: { edit: number | null }) {
         </label>
         <label className="full">
           สมาชิก
-          <select name="member_ids" multiple size={10} defaultValue={[...mem]}>
+          <select name="member_ids" multiple size={10} defaultValue={[...mem].map(String)}>
             {emps.map((e: any) => (
               <option key={e.id} value={e.id}>
                 {e.code} {fullName(e)}
