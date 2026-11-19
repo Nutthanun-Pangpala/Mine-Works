@@ -149,9 +149,15 @@ export function fdt(ts: any): string {
   if (isNaN(ms)) return String(ts);
   return `${fd(msToBkkDate(ms))} ${msToBkkTime(ms)}`;
 }
+/** Bangkok calendar date of a timestamp, formatted like fd(). */
+export function fdBkk(ts: any): string {
+  if (!ts) return "-";
+  const ms = typeof ts === "number" ? ts : ts instanceof Date ? ts.getTime() : Date.parse(String(ts));
+  return isNaN(ms) ? fd(ts) : fd(msToBkkDate(ms));
+}
 export function ftime(ts: any): string {
   if (!ts) return "-";
-  const ms = ts instanceof Date ? ts.getTime() : Date.parse(String(ts));
+  const ms = typeof ts === "number" ? ts : ts instanceof Date ? ts.getTime() : Date.parse(String(ts));
   return isNaN(ms) ? String(ts).slice(0, 5) : msToBkkTime(ms);
 }
 export function money(n: any, digits = 2): string {

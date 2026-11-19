@@ -65,7 +65,7 @@ table.tbl { width: 100%; border-collapse: collapse; }
 
 /* Forms */
 form.fields { display: grid; gap: 12px 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); align-items: end; }
-form.inline { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+form.inline { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
 label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
 input, select, textarea {
   font: inherit; color: var(--ink); background: #fff; border: 1px solid #c5ced6; border-radius: 6px; padding: 8px 10px; width: 100%; min-width: 0;
@@ -219,3 +219,16 @@ details.box summary { cursor: pointer; font-weight: 600; }
   .paper + .paper { margin-top: 0; page-break-before: always; }
   .slip.a5 { max-width: 148mm; }
 }
+
+/* ---- reports ---- */
+.chip-link { padding: 4px 12px; border-radius: 999px; background: #eef1f3; font-size: 13px; }
+.chip-link.on { background: var(--brand); color: #fff; }
+.bars { display: grid; gap: 6px; }
+.bar-row { display: grid; grid-template-columns: 140px 1fr 120px; gap: 8px; align-items: center; font-size: 13px; }
+.bar-row .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-row .track { background: #eef1f3; border-radius: 4px; height: 14px; overflow: hidden; }
+.bar-row .track i { display: block; height: 100%; background: var(--brand); border-radius: 4px; }
+.bar-row .val { text-align: right; color: var(--muted); }
+.org { list-style: none; padding-left: 22px; border-left: 1px dashed #c5ced6; margin: 4px 0; }
+.org-node { display: inline-block; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; background: #fff; margin: 4px 0; }
+.org-node .small { display: block; }
