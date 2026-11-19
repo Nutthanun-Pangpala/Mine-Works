@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
+import { ensureSchema } from "@/lib/migrate";
 import { setupFirstAdmin } from "@/app/actions/auth";
 import Notice from "@/components/Notice";
 
@@ -7,6 +8,19 @@ export const dynamic = "force-dynamic";
 
 export default async function SetupPage({ searchParams }: { searchParams: Promise<any> }) {
   const sp = await searchParams;
+  const state = await ensureSchema();
+  if (state === "foreign")
+    return (
+      <div className="login">
+        <div className="card">
+          <h1>ฐานข้อมูลไม่ว่าง</h1>
+          <p>
+            ฐานข้อมูลที่ตั้งไว้ใน <code>DATABASE_URL</code> มีตารางของระบบอื่นอยู่แล้ว (เช่น <code>employees</code>) ระบบจึงไม่สร้างตารางทับ
+            กรุณาใช้ฐานข้อมูลใหม่ที่ว่างอยู่สำหรับระบบนี้
+          </p>
+        </div>
+      </div>
+    );
   const n = await sql()`select count(*)::int as n from employees`;
   if (n[0].n > 0) redirect("/login");
   return (

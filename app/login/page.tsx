@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUser } from "@/lib/auth";
 import { sql } from "@/lib/db";
+import { schemaState } from "@/lib/migrate";
 import { login } from "@/app/actions/auth";
 import Notice from "@/components/Notice";
 
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<any> }) {
   const sp = await searchParams;
+  if ((await schemaState()) !== "ready") redirect("/setup");
   if (await getUser()) redirect("/");
   const n = await sql()`select count(*)::int as n from employees`;
   if (n[0].n === 0) redirect("/setup");
