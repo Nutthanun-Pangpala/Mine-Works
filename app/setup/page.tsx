@@ -27,7 +27,7 @@ export default async function SetupPage({ searchParams }: { searchParams: Promis
     <div className="login">
       <div className="card">
         <h1>เริ่มต้นใช้งาน</h1>
-        <p className="muted">สร้างบัญชีผู้ดูแลระบบคนแรก (Administrator)</p>
+        <p className="muted">สร้างบัญชีผู้ดูแลระบบคนแรก (Administrator) — ถ้ามีข้อมูลพนักงานที่ใช้อีเมลนี้อยู่แล้ว ระบบจะตั้งรหัสผ่านให้บัญชีนั้นแทนการสร้างใหม่</p>
         <Notice sp={sp} />
         <form action={setupFirstAdmin}>
           <label>

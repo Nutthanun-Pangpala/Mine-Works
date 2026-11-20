@@ -52,6 +52,17 @@ export async function setupFirstAdmin(fd: FormData) {
     const ins = await sql()`insert into companies (code, name_th) values ('C01', ${companyName || "บริษัทของฉัน"}) returning id`;
     companyId = ins[0].id;
   } else if (companyName) await sql()`update companies set name_th = ${companyName} where id = ${companyId}`;
+  // an employee record with this e-mail already exists (imported data, or an owner whose password was cleared
+  // to recover access): give that record the password and administrator rights instead of creating a duplicate
+  const existing = await sql()`select id from employees where lower(work_email) = ${email} and status <> 'terminated' order by id limit 1`;
+  if (existing[0]) {
+    const id = existing[0].id;
+    await sql()`update employees set password_hash = ${hashPassword(pw)}, login_enabled = true where id = ${id}`;
+    await sql()`insert into user_roles (employee_id, role_id) select ${id}, id from roles where code = 'ADMIN' on conflict do nothing`;
+    await audit(id, "setup_claim", "employee", id);
+    await createSession(id);
+    redirect("/settings");
+  }
   const pos = await sql()`select id from positions order by id limit 1`;
   const shift = await sql()`select id from shifts order by code limit 1`;
   const et = await sql()`select id from employment_types where code = 'MONTHLY'`;
